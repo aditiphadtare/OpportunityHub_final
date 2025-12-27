@@ -1,68 +1,55 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import Navbar from '@/components/Navbar';
 import OpportunityCard from '@/components/OpportunityCard';
 import { Button } from '@/components/ui/button';
 import { Bookmark, Clock, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { fetchWishlist, removeFromWishlist, type Opportunity } from '@/services/opportunityService';
+import { fetchOpportunities, type Opportunity } from '@/services/opportunityService';
 import { useToast } from '@/hooks/use-toast';
 
 const Wishlist = () => {
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, user, toggleWishlist } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+
   const [wishlistedOpportunities, setWishlistedOpportunities] = useState<Opportunity[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!isAuthenticated) {
       navigate('/');
     }
   }, [isAuthenticated, navigate]);
 
   useEffect(() => {
-    if (user?.uid) {
+    if (user?.wishlist?.length) {
       loadWishlist();
+    } else {
+      setWishlistedOpportunities([]);
+      setIsLoading(false);
     }
-  }, [user]);
+  }, [user?.wishlist]);
 
   const loadWishlist = async () => {
-    if (!user?.uid) return;
+    if (!user?.wishlist) return;
 
     setIsLoading(true);
     try {
-      const data = await fetchWishlist(user.uid);
-      setWishlistedOpportunities(data);
+      const allOpportunities = await fetchOpportunities({});
+      const filtered = allOpportunities.filter(opp =>
+        user.wishlist?.includes(opp.id)
+      );
+      setWishlistedOpportunities(filtered);
     } catch (error) {
       console.error('Error loading wishlist:', error);
       toast({
-        title: 'Error loading wishlist',
-        description: 'Failed to load your saved opportunities',
+        title: 'Error',
+        description: 'Failed to load wishlist',
         variant: 'destructive',
       });
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const handleRemoveFromWishlist = async (id: string) => {
-    if (!user?.uid) return;
-
-    try {
-      await removeFromWishlist(user.uid, id);
-      setWishlistedOpportunities(prev => prev.filter(opp => opp.id !== id));
-      toast({
-        title: 'Removed from wishlist',
-        description: 'Opportunity removed successfully',
-      });
-    } catch (error) {
-      console.error('Error removing from wishlist:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to remove from wishlist',
-        variant: 'destructive',
-      });
     }
   };
 
@@ -74,83 +61,75 @@ const Wishlist = () => {
     <div className="min-h-screen bg-background">
       <Navbar />
 
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8 animate-fade-in">
-          <Button
-            variant="ghost"
-            onClick={() => navigate('/home')}
-            className="mb-4"
-          >
-            ← Back to Home
-          </Button>
-          <div className="flex items-center gap-3 mb-2">
-            <Bookmark className="w-8 h-8 text-primary-dark" />
-            <h1 className="text-3xl font-bold text-foreground">Your Wishlist</h1>
-          </div>
-          <p className="text-muted-foreground text-lg">
-            Track your saved opportunities and their deadlines
-          </p>
+      <main className="max-w-6xl mx-auto px-6 py-8">
+        <Button variant="ghost" onClick={() => navigate('/home')} className="mb-4">
+          ← Back to Home
+        </Button>
+
+        <div className="flex items-center gap-3 mb-2">
+          <Bookmark className="w-8 h-8 text-primary-dark" />
+          <h1 className="text-3xl font-bold text-foreground">Your Wishlist</h1>
         </div>
+        <p className="text-muted-foreground mb-8">
+          Track your saved opportunities and their deadlines
+        </p>
 
         {isLoading ? (
           <div className="text-center py-16">
-            <Loader2 className="w-12 h-12 animate-spin text-primary-dark mx-auto mb-4" />
-            <p className="text-muted-foreground">Loading your wishlist...</p>
+            <Loader2 className="w-10 h-10 animate-spin text-primary mx-auto mb-4" />
+            Loading wishlist...
           </div>
         ) : sortedByDeadline.length > 0 ? (
           <>
-            {/* Deadline Summary */}
-            <div className="bg-card rounded-2xl p-6 mb-8 shadow-card">
+            {/* Deadlines */}
+            <div className="bg-card rounded-xl p-6 mb-8">
               <div className="flex items-center gap-2 mb-4">
-                <Clock className="w-5 h-5 text-primary-dark" />
-                <h2 className="font-bold text-foreground">Upcoming Deadlines</h2>
+                <Clock className="w-5 h-5 text-primary" />
+                <h2 className="font-semibold">Upcoming Deadlines</h2>
               </div>
+
               <div className="space-y-3">
-                {sortedByDeadline.slice(0, 5).map((opp) => {
-                  const deadline = new Date(opp.deadline);
-                  const today = new Date();
-                  const daysLeft = Math.ceil((deadline.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+                {sortedByDeadline.slice(0, 5).map(opp => {
+                  const daysLeft = Math.ceil(
+                    (new Date(opp.deadline).getTime() - Date.now()) /
+                      (1000 * 60 * 60 * 24)
+                  );
 
                   return (
-                    <div key={opp.id} className="flex items-center justify-between p-3 rounded-xl bg-background hover:bg-muted/50 transition-colors">
+                    <div
+                      key={opp.id}
+                      className="flex justify-between items-center p-3 rounded-lg bg-background"
+                    >
                       <div>
-                        <p className="font-semibold text-foreground">{opp.title}</p>
-                        <p className="text-sm text-muted-foreground">{opp.organization}</p>
+                        <p className="font-medium">{opp.title}</p>
+                        <p className="text-xs text-muted-foreground">{opp.organization}</p>
                       </div>
-                      <div className="text-right">
-                        <p className={`font-semibold ${daysLeft <= 7 ? 'text-destructive' : 'text-foreground'}`}>
-                          {daysLeft > 0 ? `${daysLeft} days left` : 'Expired'}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          {deadline.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                        </p>
-                      </div>
+                      <span className={daysLeft <= 7 ? 'text-destructive' : ''}>
+                        {daysLeft} days
+                      </span>
                     </div>
                   );
                 })}
               </div>
             </div>
 
-            {/* Wishlist Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-              {sortedByDeadline.map((opportunity, index) => (
+            {/* Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {sortedByDeadline.map((opp, index) => (
                 <OpportunityCard
-                  key={opportunity.id}
-                  opportunity={opportunity}
+                  key={opp.id}
+                  opportunity={opp}
                   isWishlisted={true}
-                  onWishlistToggle={handleRemoveFromWishlist}
+                  onWishlistToggle={toggleWishlist}
                   colorIndex={index}
                 />
               ))}
             </div>
           </>
         ) : (
-          <div className="text-center py-16 bg-card rounded-2xl">
-            <Bookmark className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-            <h2 className="text-xl font-bold text-foreground mb-2">No saved opportunities yet</h2>
-            <p className="text-muted-foreground mb-6">
-              Start exploring and save opportunities you're interested in
-            </p>
+          <div className="text-center py-20 bg-card rounded-xl">
+            <Bookmark className="w-14 h-14 mx-auto mb-4 text-muted-foreground" />
+            <h2 className="text-xl font-semibold mb-2">No saved opportunities yet</h2>
             <Button onClick={() => navigate('/home')}>
               Browse Opportunities
             </Button>
