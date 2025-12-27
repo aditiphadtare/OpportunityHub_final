@@ -34,7 +34,7 @@ import {
   analyzeResume,
   refineResume,
   fetchRecommendations,
-  uploadResumeFile,
+  uploadResume,
 } from '@/services/resumeService';
 import { useNavigate } from 'react-router-dom';
 
