@@ -1,0 +1,17 @@
+# Maven
+target/
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# OS
+.DS_Store
+
+# Firebase secrets
+src/main/resources/firebase/serviceAccountKey.json
+
+# Logs
+*.log
+
