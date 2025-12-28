@@ -1,175 +1,112 @@
 /**
  * Opportunity Service
- * Frontend service for opportunity-related API calls
+ * Frontend → Backend API ONLY
  */
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+
+/* ===========================
+   TYPES
+=========================== */
 
 export interface Opportunity {
-    id: string;
-    title: string;
-    organization: string;
-    type: 'hackathon' | 'tech-event' | 'college-fest' | 'internship' | 'job';
-    location: string;
-    deadline: string | Date;
-    domains: string[];
-    description: string;
-    stipend?: string;
-    duration?: string;
-    reward?: string;
-    isRemote: boolean;
-    link?: string;
-    matchPercentage?: number;
+  id: string;
+  title: string;
+  organization: string;
+  type: "hackathon" | "tech-event" | "college-fest" | "internship" | "job";
+  location: string;
+  deadline: string | Date;
+  domains: string[];
+  description: string;
+  isRemote: boolean;
+  link?: string;
+  addedAt?: Date;
+  matchPercentage?: number;
 }
 
 export interface OpportunityFilters {
-    type?: string;
-    location?: string;
-    domains?: string[];
-    resumeText?: string;
+  type?: string;
+  location?: string;
+  domains?: string[];
+  resumeText?: string;
 }
 
-/**
- * Fetch opportunities with optional filters
- */
-export async function fetchOpportunities(filters?: OpportunityFilters): Promise<Opportunity[]> {
-    try {
-        const params = new URLSearchParams();
+/* ===========================
+   OPPORTUNITIES
+=========================== */
 
-        if (filters?.type) params.append('type', filters.type);
-        if (filters?.location) params.append('location', filters.location);
-        if (filters?.resumeText) params.append('resumeText', filters.resumeText);
-        if (filters?.domains && filters.domains.length > 0) {
-            params.append('domains', filters.domains.join(','));
-        }
+export async function fetchOpportunities(filters?: OpportunityFilters) {
+  const params = new URLSearchParams();
 
-        const url = `${API_URL}/opportunities${params.toString() ? '?' + params.toString() : ''}`;
-        const response = await fetch(url);
+  if (filters?.type) params.append("type", filters.type);
+  if (filters?.location) params.append("location", filters.location);
+  if (filters?.resumeText) params.append("resumeText", filters.resumeText);
+  if (filters?.domains?.length)
+    params.append("domains", filters.domains.join(","));
 
-        if (!response.ok) {
-            throw new Error('Failed to fetch opportunities');
-        }
+  const res = await fetch(
+    `${API_URL}/opportunities${params.toString() ? "?" + params : ""}`
+  );
 
-        const data = await response.json();
-        return data.data || [];
-    } catch (error) {
-        console.error('Error fetching opportunities:', error);
-        throw error;
-    }
+  if (!res.ok) throw new Error("Failed to fetch opportunities");
+  const json = await res.json();
+  return json.data || [];
 }
 
-/**
- * Get single opportunity by ID
- */
-export async function fetchOpportunityById(id: string): Promise<Opportunity> {
-    try {
-        const response = await fetch(`${API_URL}/opportunities/${id}`);
-
-        if (!response.ok) {
-            throw new Error('Failed to fetch opportunity');
-        }
-
-        const data = await response.json();
-        return data.data;
-    } catch (error) {
-        console.error('Error fetching opportunity:', error);
-        throw error;
-    }
+export async function fetchOpportunityById(id: string) {
+  const res = await fetch(`${API_URL}/opportunities/${id}`);
+  if (!res.ok) throw new Error("Failed to fetch opportunity");
+  const json = await res.json();
+  return json.data;
 }
 
-/**
- * Add opportunity to wishlist
- */
-export async function addToWishlist(userId: string, opportunityId: string): Promise<void> {
-    try {
-        const response = await fetch(`${API_URL}/opportunities/wishlist`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ userId, opportunityId }),
-        });
+/* ===========================
+   WISHLIST (API ONLY)
+=========================== */
 
-        if (!response.ok) {
-            throw new Error('Failed to add to wishlist');
-        }
-    } catch (error) {
-        console.error('Error adding to wishlist:', error);
-        throw error;
-    }
-}
-
-/**
- * Remove opportunity from wishlist
- */
-export async function removeFromWishlist(userId: string, opportunityId: string): Promise<void> {
-    try {
-        const response = await fetch(`${API_URL}/opportunities/wishlist/${userId}/${opportunityId}`, {
-            method: 'DELETE',
-        });
-
-        if (!response.ok) {
-            throw new Error('Failed to remove from wishlist');
-        }
-    } catch (error) {
-        console.error('Error removing from wishlist:', error);
-        throw error;
-    }
-}
-
-/**
- * Get user's wishlist
- */
 export async function fetchWishlist(userId: string): Promise<Opportunity[]> {
-    try {
-        const response = await fetch(`${API_URL}/opportunities/wishlist/${userId}`);
-
-        if (!response.ok) {
-            throw new Error('Failed to fetch wishlist');
-        }
-
-        const data = await response.json();
-        return data.data || [];
-    } catch (error) {
-        console.error('Error fetching wishlist:', error);
-        throw error;
-    }
+  const res = await fetch(`${API_URL}/opportunities/wishlist/${userId}`);
+  if (!res.ok) throw new Error("Failed to fetch wishlist");
+  const json = await res.json();
+  return json.data || [];
 }
 
-/**
- * Get upcoming deadlines
- */
+export async function addToWishlist(userId: string, opportunityId: string) {
+  const res = await fetch(`${API_URL}/opportunities/wishlist`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId, opportunityId }),
+  });
+
+  if (!res.ok) throw new Error("Failed to add to wishlist");
+}
+
+export async function removeFromWishlist(
+  userId: string,
+  opportunityId: string
+) {
+  const res = await fetch(
+    `${API_URL}/opportunities/wishlist/${userId}/${opportunityId}`,
+    { method: "DELETE" }
+  );
+
+  if (!res.ok) throw new Error("Failed to remove from wishlist");
+}
+
+/* ===========================
+   DEADLINES
+=========================== */
+
 export async function fetchDeadlines(userId: string) {
-    try {
-        const response = await fetch(`${API_URL}/deadlines/${userId}`);
-
-        if (!response.ok) {
-            throw new Error('Failed to fetch deadlines');
-        }
-
-        const data = await response.json();
-        return data.data || [];
-    } catch (error) {
-        console.error('Error fetching deadlines:', error);
-        throw error;
-    }
+  const res = await fetch(`${API_URL}/deadlines/${userId}`);
+  if (!res.ok) throw new Error("Failed to fetch deadlines");
+  const json = await res.json();
+  return json.data || [];
 }
 
-/**
- * Get urgent deadlines (within 7 days)
- */
 export async function fetchUrgentDeadlines(userId: string) {
-    try {
-        const response = await fetch(`${API_URL}/deadlines/${userId}/urgent`);
-
-        if (!response.ok) {
-            throw new Error('Failed to fetch urgent deadlines');
-        }
-
-        const data = await response.json();
-        return data.data || [];
-    } catch (error) {
-        console.error('Error fetching urgent deadlines:', error);
-        throw error;
-    }
+  const res = await fetch(`${API_URL}/deadlines/${userId}/urgent`);
+  if (!res.ok) throw new Error("Failed to fetch urgent deadlines");
+  const json = await res.json();
+  return json.data || [];
 }
