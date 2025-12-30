@@ -28,10 +28,6 @@ Many users struggle with **scattered opportunity information, information overlo
 
 - Used as the **development and structuring environment** to design scalable backend logic and clean architecture.
 
-### 🔹 Frontend & Backend
-
-- **Frontend:** JavaScript (React-based UI)
-- **Backend:** Node.js (User/Auth services) & Java (Opportunity data services)
 
 ## 3️⃣ Key Features
 
@@ -68,12 +64,12 @@ Many users struggle with **scattered opportunity information, information overlo
 - Google Cloud account
 - Gemini API Key
 
-### 🔹 Backend (Node.js – User/Auth & Resume Analyzer)
+### 🔹 Backend 
 
 ```bash
 cd opportunityhub_backend
 npm install
-npm start
+npm run dev
 
 ```
 
