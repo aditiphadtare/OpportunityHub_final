@@ -64,27 +64,32 @@ Many users struggle with **scattered opportunity information, information overlo
 ### 🔹 Prerequisites
 
 - Node.js (v18+)
-- Java (JDK 17+)
 - Firebase project setup
 - Google Cloud account
 - Gemini API Key
 
 ### 🔹 Backend (Node.js – User/Auth & Resume Analyzer)
 
+```bash
 cd opportunityhub_backend
 npm install
 npm start
 
+```
+
 ### 🔹 Frontend
 
+```bash
 cd opportunityhub_frontend
 npm install
 npm run dev
 
+```
+
 
 ### 🔹 Environment Variables
 
-Create `.env` files with:
+Create ``` .env ``` files with:
 
 - Firebase credentials
 - Gemini API key
