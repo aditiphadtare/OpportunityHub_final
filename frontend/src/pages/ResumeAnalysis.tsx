@@ -15,6 +15,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+
 import {
   Loader2,
   Upload,
@@ -49,6 +52,8 @@ const ResumeAnalysis = () => {
   const [isRefining, setIsRefining] = useState(false);
   const [result, setResult] = useState<any>(null);
   const [resumeFile, setResumeFile] = useState<File | null>(null);
+  const [isLoadingSavedData, setIsLoadingSavedData] = useState(true);
+
 
   // Refinement state
   const [refinementInput, setRefinementInput] = useState('');
@@ -61,6 +66,38 @@ const ResumeAnalysis = () => {
     }
   }, [user]);
 
+  useEffect(() => {
+    if (!user) return;
+  
+    const loadSavedAnalysis = async () => {
+      try {
+        const ref = doc(db, 'resumeAnalyses', user.uid);
+        const snap = await getDoc(ref);
+  
+        if (snap.exists()) {
+          const data = snap.data();
+  
+          // restore resume text
+          if (data.resumeText) {
+            setResumeText(data.resumeText);
+          }
+  
+          // 🔥 restore analysis
+          if (data.result) {
+            setResult(data.result);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load saved analysis', err);
+      } finally {
+        setIsLoadingSavedData(false);
+      }
+    };
+  
+    loadSavedAnalysis();
+  }, [user]);
+  
+
   const handleResumeUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -69,16 +106,28 @@ const ResumeAnalysis = () => {
     setIsUploading(true);
 
     try {
-      const text = await uploadResumeFile(file);
-      setResumeText(text);
-      saveResumeToContext(text);
+      const result = await uploadResume(file);  // result is an OBJECT
+    
+      setResumeText(result.text);               // ✅ use result.text
+      saveResumeToContext(result.text);         // ✅ use result.text
     } catch (error) {
       console.error('Upload failed:', error);
-      // You might want to show a toast error here
-    } finally {
-      setIsUploading(false);
     }
-  };
+  }
+    
+
+  //   try {
+  //     const text = await uploadResume(file);
+  //     setResumeText(text);
+  //     saveResumeToContext(text);
+  //   } catch (error) {
+  //     console.error('Upload failed:', error);
+  //     // You might want to show a toast error here
+  //   } finally {
+  //     setIsUploading(false);
+  //   }
+  // };
+
 
   const handleAnalyze = async () => {
     if (!resumeText || !jobDescription) return;
@@ -89,15 +138,40 @@ const ResumeAnalysis = () => {
       const analysisData = await analyzeResume(resumeText, jobDescription);
 
       // 2. Fetch Recommendations based on skills
+      // const recs = await fetchRecommendations({
+      //   skills: analysisData.matchedSkills,
+      //   missingSkills: analysisData.missingSkills
+      // });
       const recs = await fetchRecommendations({
-        skills: analysisData.matchedSkills,
+        matchedSkills: analysisData.matchedSkills,
         missingSkills: analysisData.missingSkills
       });
+      
 
-      setResult({
+      // setResult({
+      //   ...analysisData,
+      //   recommendations: recs
+      // });
+      const finalResult = {
         ...analysisData,
-        recommendations: recs
-      });
+        recommendations: recs,
+      };
+      
+      setResult(finalResult);
+      
+      // 🔥 SAVE ANALYSIS TO FIRESTORE
+      if (user) {
+        await setDoc(
+          doc(db, 'resumeAnalyses', user.uid),
+          {
+            resumeText,
+            result: finalResult,
+            updatedAt: new Date(),
+          },
+          { merge: true }
+        );
+      }
+      
     } catch (error) {
       console.error('Analysis failed:', error);
     } finally {
@@ -122,11 +196,33 @@ const ResumeAnalysis = () => {
     }
   };
 
-  const resetAnalysis = () => {
+  // const resetAnalysis = () => {
+  //   setResult(null);
+  //   setJobDescription('');
+  //   // We keep the resume text as the user might want to check against another job
+  // };
+
+  const resetAnalysis = async () => {
+    if (!user) return;
+  
     setResult(null);
     setJobDescription('');
-    // We keep the resume text as the user might want to check against another job
+  
+    // 🔥 Clear persisted analysis, but keep resume text
+    await setDoc(
+      doc(db, 'resumes', user.uid),
+      {
+        resumeText,   // keep resume
+        result: null, // clear analysis
+        updatedAt: new Date(),
+      },
+      { merge: true }
+    );
   };
+  
+
+  
+
 
   const getMatchColor = (percentage: number) => {
     if (percentage >= 80) return 'text-green-600';
@@ -147,9 +243,12 @@ const ResumeAnalysis = () => {
           <FileText className="w-8 h-8 text-primary" />
           <h1 className="text-3xl font-bold text-foreground">AI-Powered Resume Analysis</h1>
         </div>
-
-        {!result ? (
-          <div className="grid lg:grid-cols-2 gap-8">
+        {isLoadingSavedData ? (
+  <div className="flex justify-center items-center min-h-[60vh]">
+    <Loader2 className="w-8 h-8 animate-spin text-primary" />
+  </div>
+) : !result ? (
+      <div className="grid lg:grid-cols-2 gap-8">
             {/* Input Section */}
             <div className="space-y-6">
               {/* Resume Input */}
