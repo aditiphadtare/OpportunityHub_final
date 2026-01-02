@@ -267,7 +267,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         email: data.email,
         username: data.username,
         location: data.location || '',
-        domains: data.domains || [],
+        domains: data.domain || [],
         wishlist: wishlistIds,
         resumeText: localStorage.getItem(`resume_${data.uid}`) || ''
       };

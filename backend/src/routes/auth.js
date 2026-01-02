@@ -62,7 +62,7 @@ router.post("/login", async (req, res) => {
       email: userData.email,
       username: userData.username,
       location: userData.location,
-      domains: userData.domain || [],
+      domain: userData.domain || [],
     });
   } catch (err) {
     console.error("Login error:", err.message);

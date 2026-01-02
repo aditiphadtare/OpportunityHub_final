@@ -5,31 +5,53 @@ const { admin, db } = require("../config/firebase");
  */
 async function getOpportunities(filters = {}) {
   try {
-    let query = db.collection("opportunities");
+    const snapshot = await db.collection("opportunities").get();
 
-    if (filters.type && filters.type !== "all") {
-      query = query.where("type", "==", filters.type);
+    let opportunities = snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+
+    /* =========================
+       LOCATION FILTER (SAFE)
+    ========================== */
+    if (filters.location) {
+      const userLocation = filters.location.toLowerCase();
+
+      opportunities = opportunities.filter((opp) => {
+        if (!opp.location) return false;
+
+        const oppLocation = opp.location.toLowerCase();
+
+        return (
+          oppLocation.includes(userLocation) ||
+          oppLocation.includes("remote")
+        );
+      });
     }
 
-    const snapshot = await query.get();
+    /* =========================
+       DOMAIN FILTER (SAFE)
+    ========================== */
+    if (Array.isArray(filters.domains) && filters.domains.length > 0) {
+      const userDomains = filters.domains.map((d) => d.toLowerCase());
 
-    const opportunities = snapshot.docs.map((doc) => {
-      const data = doc.data();
+      opportunities = opportunities.filter((opp) => {
+        if (!Array.isArray(opp.domains)) return false;
 
-      return {
-        id: doc.id,
-        ...data,
-        deadline: data.deadline?.toDate?.() || data.deadline,
-        createdAt: data.createdAt?.toDate?.() || data.createdAt,
-      };
-    });
+        const oppDomains = opp.domains.map((d) => d.toLowerCase());
+
+        return oppDomains.some((d) => userDomains.includes(d));
+      });
+    }
 
     return opportunities;
   } catch (error) {
-    console.error("Error fetching opportunities:", error);
+    console.error("Error filtering opportunities:", error);
     throw error;
   }
 }
+
 
 /**
  * Get single opportunity

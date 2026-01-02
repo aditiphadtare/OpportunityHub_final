@@ -9,6 +9,8 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { User, Mail, MapPin, Code, Save, Check } from 'lucide-react';
 
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+
 const Profile = () => {
   const { user, updateProfile, isAuthenticated } = useAuth();
   const navigate = useNavigate();
@@ -34,23 +36,81 @@ const Profile = () => {
     );
   };
 
-  const handleSave = () => {
-    setIsSaving(true);
-    
-    updateProfile({
-      username,
-      email,
-      location: selectedLocation,
-      domains: selectedDomains,
-    });
+  const handleSave = async () => {
+    if (!user) return;
 
-    setTimeout(() => {
-      setIsSaving(false);
+    setIsSaving(true);
+
+    try {
+      // 1️⃣ Save preferences (location + domains)
+      const prefRes = await fetch(`${API_URL}/profile/update`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          uid: user.uid,
+          location: selectedLocation,
+          domain: selectedDomains,
+        }),
+      });
+
+      if (!prefRes.ok) {
+        throw new Error("Failed to save preferences");
+      }
+
+      // 2️⃣ Save username/email to Firestore
+      const infoRes = await fetch(`${API_URL}/profile/update-info`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          uid: user.uid,
+          username,
+          email,
+        }),
+      });
+
+      if (!infoRes.ok) {
+        throw new Error("Failed to update profile info");
+      }
+
+      // 3️⃣ If email changed → update Firebase Auth
+      if (email !== user.email) {
+        const emailRes = await fetch(`${API_URL}/profile/update-email`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            uid: user.uid,
+            email,
+          }),
+        });
+
+        if (!emailRes.ok) {
+          throw new Error("Please re-login to change email");
+        }
+      }
+
+      // 4️⃣ Update local state ONCE
+      updateProfile({
+        username,
+        email,
+        location: selectedLocation,
+        domains: selectedDomains,
+      });
+
       toast({
-        title: "Profile updated!",
+        title: "Profile updated",
         description: "Your changes have been saved successfully.",
       });
-    }, 500);
+
+    } catch (error: any) {
+      console.error(error);
+      toast({
+        title: "Update failed",
+        description: error.message || "Could not save profile changes",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -59,11 +119,7 @@ const Profile = () => {
 
       <main className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8 animate-fade-in">
-          <Button 
-            variant="ghost" 
-            onClick={() => navigate('/home')}
-            className="mb-4"
-          >
+          <Button variant="ghost" onClick={() => navigate('/home')} className="mb-4">
             ← Back to Home
           </Button>
           <h1 className="text-3xl font-bold text-foreground">Profile Settings</h1>
@@ -79,7 +135,7 @@ const Profile = () => {
               <User className="w-5 h-5 text-primary-dark" />
               Personal Information
             </h2>
-            
+
             <div className="grid gap-6">
               <div className="space-y-2">
                 <Label htmlFor="username">Username</Label>
@@ -116,7 +172,7 @@ const Profile = () => {
               <MapPin className="w-5 h-5 text-primary-dark" />
               Location Preference
             </h2>
-            
+
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-48 overflow-y-auto">
               {locations.map((location) => (
                 <button
@@ -140,7 +196,7 @@ const Profile = () => {
               <Code className="w-5 h-5 text-primary-dark" />
               Domain Preferences
             </h2>
-            
+
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {domains.map((domain) => (
                 <button
